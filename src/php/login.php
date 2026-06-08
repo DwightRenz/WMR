@@ -9,29 +9,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die("Connection failed: " . $conn->connect_error);
     }
 
-    $username = trim($_POST['username']);
+    $inputUsername = trim($_POST['username']);
     $password = $_POST['password'];
 
     $stmt = $conn->prepare("SELECT id, username, password FROM users WHERE username = ?");
-    $stmt->bind_param("s", $username);
+    $stmt->bind_param("s", $inputUsername);
     $stmt->execute();
     $stmt->store_result();
-    $stmt->bind_result($userId, $username, $userPassword);
+    $stmt->bind_result($userId, $dbUsername, $userPassword);
 
     if ($stmt->num_rows > 0) {
         $stmt->fetch();
         if (password_verify($password, $userPassword)) {
             $_SESSION['user_id'] = $userId;
-            $_SESSION['username'] = $username;
+            $_SESSION['username'] = $dbUsername;
 
-            if ($username === 'admin' && $password === 'adminadmin') {
-            header("Location: admin/index.php");
-            exit();
-        }
+            // If this account is the admin user, redirect to admin dashboard.
+            if ($dbUsername === 'admin') {
+                header("Location: admin/index.php");
+                $stmt->close();
+                $conn->close();
+                exit();
+            }
 
             $redirectTo = isset($_SESSION['redirect_after_login']) ? $_SESSION['redirect_after_login'] : 'index.php';
             unset($_SESSION['redirect_after_login']); // Clean up
             header("Location: " . $redirectTo);
+            $stmt->close();
+            $conn->close();
             exit();
         } else {
             $loginMessage = "❌ Invalid password.";
